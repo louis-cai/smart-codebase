@@ -29,63 +29,71 @@ const COMMAND_CONFIGS = {
 } as const;
 
 const SmartCodebasePlugin: Plugin = async (input) => {
-  setPluginInput(input);
-  
-  const config = await loadConfig(input.directory);
-  
-  if (!config.enabled) {
-    console.log("[smart-codebase] Plugin disabled via config");
+  try {
+    setPluginInput(input);
+    
+    const config = loadConfig(input.directory);
+    
+    if (!config.enabled) {
+      console.log("[smart-codebase] Plugin disabled via config");
+      return {};
+    }
+
+    const disabledCommands = new Set(config.disabledCommands || []);
+    console.log(`[smart-codebase] Disabled commands:`, Array.from(disabledCommands));
+    
+    const enabledTools: Record<string, typeof extractCommand> = {};
+    const enabledCommandConfigs: Record<string, { template: string; description: string }> = {};
+    
+    for (const [name, command] of Object.entries(ALL_COMMANDS)) {
+      if (!disabledCommands.has(name)) {
+        enabledTools[name] = command;
+        enabledCommandConfigs[name] = COMMAND_CONFIGS[name as keyof typeof COMMAND_CONFIGS];
+      } else {
+        console.log(`[smart-codebase] Command disabled: ${name}`);
+      }
+    }
+
+    const contextInjector = createContextInjectorHook(input, config);
+    const knowledgeExtractor = createKnowledgeExtractorHook(input, config);
+    
+    let hasShownWelcomeToast = false;
+
+    return {
+      tool: enabledTools,
+      "tool.execute.after": async (hookInput, output) => {
+        await knowledgeExtractor["tool.execute.after"]?.(hookInput, output);
+      },
+      "chat.message": async (hookInput, output) => {
+        await contextInjector["chat.message"]?.(hookInput, output);
+      },
+      event: async (hookInput) => {
+        if (!hasShownWelcomeToast && hookInput.event.type === "session.created") {
+          hasShownWelcomeToast = true;
+          await input.client.tui.showToast({
+            body: {
+              title: "smart-codebase",
+              message: "Knowledge base active",
+              variant: "info",
+              duration: 3000,
+            },
+          }).catch(() => {});
+        }
+        
+        await contextInjector.event?.(hookInput);
+        await knowledgeExtractor.event?.(hookInput);
+      },
+      config: async (cfg) => {
+        cfg.command = {
+          ...cfg.command,
+          ...enabledCommandConfigs,
+        };
+      },
+    };
+  } catch (error) {
+    console.error("[smart-codebase] Plugin initialization failed:", error);
     return {};
   }
-
-  const disabledCommands = new Set(config.disabledCommands || []);
-  
-  const enabledTools: Record<string, typeof extractCommand> = {};
-  const enabledCommandConfigs: Record<string, { template: string; description: string }> = {};
-  
-  for (const [name, command] of Object.entries(ALL_COMMANDS)) {
-    if (!disabledCommands.has(name)) {
-      enabledTools[name] = command;
-      enabledCommandConfigs[name] = COMMAND_CONFIGS[name as keyof typeof COMMAND_CONFIGS];
-    }
-  }
-
-  const contextInjector = createContextInjectorHook(input, config);
-  const knowledgeExtractor = createKnowledgeExtractorHook(input, config);
-  
-  let hasShownWelcomeToast = false;
-
-  return {
-    tool: enabledTools,
-    "tool.execute.after": async (hookInput, output) => {
-      await knowledgeExtractor["tool.execute.after"]?.(hookInput, output);
-    },
-    "chat.message": async (hookInput, output) => {
-      await contextInjector["chat.message"]?.(hookInput, output);
-    },
-    event: async (hookInput) => {
-      if (!hasShownWelcomeToast && hookInput.event.type === "session.created") {
-        hasShownWelcomeToast = true;
-        await input.client.tui.showToast({
-          body: {
-            title: "smart-codebase",
-            message: "Knowledge base active",
-            variant: "info",
-            duration: 3000,
-          },
-        }).catch(() => {});
-      }
-      
-      await contextInjector.event?.(hookInput);
-      await knowledgeExtractor.event?.(hookInput);
-    },
-    config: async (cfg) => {
-      cfg.command = {
-        ...cfg.command,
-        ...enabledCommandConfigs,
-      };
-    },
-  };
 };
 
 export default SmartCodebasePlugin;

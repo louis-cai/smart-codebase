@@ -32,8 +32,7 @@
   "license": "MIT",
   "dependencies": {
     "@opencode-ai/plugin": "^1.1.19",
-    "fast-glob": "^3.3.3",
-    "jsonc-parser": "^3.3.1"
+    "fast-glob": "^3.3.3"
   },
   "devDependencies": {
     "@types/node": "^25.0.10",
