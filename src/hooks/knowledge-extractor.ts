@@ -4,7 +4,7 @@
  */
 
 import type { PluginInput, Hooks } from "@opencode-ai/plugin";
-import type { PluginConfig, Fact } from "../types";
+import type { PluginConfig, Fact, GraphEdge } from "../types";
 import { appendFact } from "../storage/knowledge-writer";
 import { getKnowledgeDirectory } from "../storage/knowledge-writer";
 import { linkFact } from "../linking/knowledge-linker";
@@ -34,6 +34,10 @@ export function createKnowledgeExtractorHook(ctx: PluginInput, config?: PluginCo
   // Tracks which files were modified in each session
   const sessionModifiedFiles = new Map<string, Set<string>>();
 
+  // Session state: Map<sessionID, boolean>
+  // Prevents concurrent extractions for the same session
+  const sessionExtractionInProgress = new Map<string, boolean>();
+
   /**
    * Gets or creates the modified files set for a session
    */
@@ -53,17 +57,28 @@ export function createKnowledgeExtractorHook(ctx: PluginInput, config?: PluginCo
    * @param ctx - Plugin input context
    * @param sessionID - Session identifier
    */
-  async function extractKnowledge(ctx: PluginInput, sessionID: string): Promise<void> {
+  async function extractKnowledge(ctx: PluginInput, sessionID: string): Promise<{ facts: Fact[], links: GraphEdge[] }> {
+    // Check if extraction already in progress for this session
+    if (sessionExtractionInProgress.get(sessionID)) {
+      console.log(`[smart-codebase] Extraction already in progress for session ${sessionID}, skipping`);
+      return { facts: [], links: [] };
+    }
+
+    // Mark extraction as in progress
+    sessionExtractionInProgress.set(sessionID, true);
+
     let extractionSessionID: string | undefined;
+    const storedFacts: Fact[] = [];
+    const createdLinks: GraphEdge[] = [];
     
     try {
       const modifiedFiles = sessionModifiedFiles.get(sessionID);
       
-      // No files modified - nothing to extract
-      if (!modifiedFiles || modifiedFiles.size === 0) {
-        console.log(`[smart-codebase] No files modified in session ${sessionID}, skipping extraction`);
-        return;
-      }
+       // No files modified - nothing to extract
+       if (!modifiedFiles || modifiedFiles.size === 0) {
+         console.log(`[smart-codebase] No files modified in session ${sessionID}, skipping extraction`);
+         return { facts: [], links: [] };
+       }
 
       console.log(`[smart-codebase] Knowledge extraction triggered for session ${sessionID}`);
       console.log(`[smart-codebase] Modified files (${modifiedFiles.size}):`, Array.from(modifiedFiles));
@@ -134,56 +149,76 @@ If no significant learnings, return empty array: []`;
           cleanText = cleanText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
         }
         facts = JSON.parse(cleanText);
-      } catch (error) {
-        console.error('[smart-codebase] Failed to parse AI response as JSON:', error);
-        return;
-      }
+       } catch (error) {
+         console.error('[smart-codebase] Failed to parse AI response as JSON:', error);
+         return { facts: storedFacts, links: createdLinks };
+       }
 
-      if (!Array.isArray(facts)) {
-        console.error('[smart-codebase] AI response is not an array');
-        return;
-      }
+       if (!Array.isArray(facts)) {
+         console.error('[smart-codebase] AI response is not an array');
+         return { facts: storedFacts, links: createdLinks };
+       }
 
       console.log(`[smart-codebase] Parsed ${facts.length} facts from AI response`);
 
-      // 5. Validate and store each fact
-      let storedCount = 0;
-      for (const factData of facts) {
-        if (!isValidFact(factData)) {
-          console.warn('[smart-codebase] Skipping invalid fact:', factData);
-          continue;
-        }
+       // 5. Validate and store each fact
+       let storedCount = 0;
+       for (const factData of facts) {
+         if (!isValidFact(factData)) {
+           console.warn('[smart-codebase] Skipping invalid fact:', factData);
+           continue;
+         }
 
-        // Add required fields
-        const fact: Fact = {
-          ...factData,
-          timestamp: new Date().toISOString(),
-          learned_from: `Session ${sessionID}`,
-        };
+         // Add required fields
+         const fact: Fact = {
+           ...factData,
+           timestamp: new Date().toISOString(),
+           learned_from: `Session ${sessionID}`,
+         };
 
-        try {
-          // 6. Store fact
-          await appendFact(ctx.directory, fact);
-          
-          // 7. Link fact
-          await linkFact(fact, ctx.directory);
-          
-          storedCount++;
-          console.log(`[smart-codebase] Stored and linked fact: ${fact.subject}`);
-        } catch (error) {
-          console.error(`[smart-codebase] Failed to store/link fact ${fact.id}:`, error);
-          // Continue with next fact
-        }
-      }
+         try {
+           // 6. Store fact
+           await appendFact(ctx.directory, fact);
+           
+           // 7. Link fact
+           await linkFact(fact, ctx.directory);
+           
+           // Collect stored fact and its links
+           storedFacts.push(fact);
+           
+           // Collect links from related_facts
+           if (fact.related_facts && fact.related_facts.length > 0) {
+             for (const relatedId of fact.related_facts) {
+               createdLinks.push({
+                 from: fact.id,
+                 to: relatedId,
+                 relation: 'related'
+               });
+             }
+           }
+           
+           storedCount++;
+           console.log(`[smart-codebase] Stored and linked fact: ${fact.subject}`);
+         } catch (error) {
+           console.error(`[smart-codebase] Failed to store/link fact ${fact.id}:`, error);
+           // Continue with next fact
+         }
+       }
 
-      console.log(`[smart-codebase] Successfully stored ${storedCount}/${facts.length} facts`);
+       console.log(`[smart-codebase] Successfully stored ${storedCount}/${facts.length} facts`);
 
-      // Clear modified files after extraction
-      sessionModifiedFiles.delete(sessionID);
-    } catch (error) {
-      console.error(`[smart-codebase] Failed to extract knowledge for session ${sessionID}:`, error);
-    } finally {
-      // 8. Always cleanup: delete extraction session
+       // Clear modified files after extraction
+       sessionModifiedFiles.delete(sessionID);
+       
+       return { facts: storedFacts, links: createdLinks };
+     } catch (error) {
+       console.error(`[smart-codebase] Failed to extract knowledge for session ${sessionID}:`, error);
+       return { facts: storedFacts, links: createdLinks };
+     } finally {
+       // Clear in-progress flag
+       sessionExtractionInProgress.delete(sessionID);
+       
+       // 8. Always cleanup: delete extraction session
       if (extractionSessionID) {
         try {
           await ctx.client.session.delete({ 
