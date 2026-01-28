@@ -1,6 +1,6 @@
 {
   "name": "smart-codebase",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Task-driven cumulative learning plugin for OpenCode - AI learns from every completed task",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -15,7 +15,7 @@
     }
   },
   "scripts": {
-    "build": "bun build src/index.ts --outdir dist --target node --format esm && tsc --emitDeclarationOnly",
+    "build": "tsup",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit"
   },
@@ -37,6 +37,7 @@
   "devDependencies": {
     "@types/node": "^25.0.10",
     "bun-types": "latest",
+    "tsup": "^8.5.1",
     "typescript": "^5.7.3"
   }
 }
