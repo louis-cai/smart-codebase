@@ -6,6 +6,7 @@ import { createContextInjectorHook } from "./hooks/context-injector";
 import { createKnowledgeExtractorHook } from "./hooks/knowledge-extractor";
 import { setPluginInput } from "./plugin-context";
 import { loadConfig } from "./config";
+import { trackSkillAccess, shouldTrackPath } from "./storage/usage-tracker";
 
 const ALL_COMMANDS = {
   "sc-extract": extractCommand,
@@ -60,6 +61,15 @@ const SmartCodebasePlugin: Plugin = async (input) => {
       tool: enabledTools,
       "tool.execute.after": async (hookInput, output) => {
         await knowledgeExtractor["tool.execute.after"]?.(hookInput, output);
+        
+        if (hookInput.tool === "read" && output.title) {
+          const filePath = output.title;
+          const projectRoot = input.directory;
+          
+          if (shouldTrackPath(filePath, projectRoot)) {
+            await trackSkillAccess(filePath, projectRoot);
+          }
+        }
       },
       "chat.message": async (hookInput, output) => {
         await contextInjector["chat.message"]?.(hookInput, output);
