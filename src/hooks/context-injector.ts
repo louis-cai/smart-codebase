@@ -2,6 +2,7 @@ import type { PluginInput, Hooks } from "@opencode-ai/plugin";
 import type { PluginConfig } from "../types";
 import { join } from "path";
 import { fileExists } from "../utils/fs-compat";
+import { getProjectSkillName } from "../storage/knowledge-writer";
 
 type ChatMessageInput = Parameters<NonNullable<Hooks["chat.message"]>>[0];
 type ChatMessageOutput = Parameters<NonNullable<Hooks["chat.message"]>>[1];
@@ -23,10 +24,11 @@ export function createContextInjectorHook(ctx: PluginInput, config?: PluginConfi
     }
 
     try {
-      const knowledgePath = join(ctx.directory, '.knowledge', 'KNOWLEDGE.md');
-      const hasKnowledge = await fileExists(knowledgePath);
+      const skillName = getProjectSkillName(ctx.directory);
+      const skillPath = join(ctx.directory, '.opencode', 'skills', skillName, 'SKILL.md');
+      const hasSkill = await fileExists(skillPath);
 
-      if (!hasKnowledge) {
+      if (!hasSkill) {
         sessionKnowledgeInjected.add(input.sessionID);
         return;
       }
@@ -34,7 +36,7 @@ export function createContextInjectorHook(ctx: PluginInput, config?: PluginConfi
       const knowledgeHint = `
 
 ---
-**[REQUIRED FIRST STEP]** Before any other action, read \`.knowledge/KNOWLEDGE.md\` to discover available project knowledge. Then read relevant \`.knowledge/SKILL.md\` files for modules you'll modify. Do NOT skip this step.
+**[REQUIRED FIRST STEP]** Before any other action, read \`.opencode/skills/${skillName}/SKILL.md\` to discover available project knowledge. Then read relevant \`.knowledge/SKILL.md\` files for modules you'll modify. Do NOT skip this step.
 ---
 
 `;

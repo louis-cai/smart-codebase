@@ -23,24 +23,19 @@ smart-codebase 自动从会话中捕获知识，并使其可供未来会话使�
 ```mermaid
 graph TB
     Start([会话工作])
-    Idle[空闲 15 秒]
     Extractor[AI 提取器分析]
-    SkillFile[SKILL.md<br/>模块知识]
-    KnowledgeIndex[KNOWLEDGE.md<br/>全局索引]
+    SkillFile[.knowledge/SKILL.md<br/>模块知识]
+    ProjectSkill[.opencode/skills/project/SKILL.md<br/>OpenCode 自动发现]
     NewSession([新会话开始])
     Injector[知识注入器]
-    ReadKnowledge[读取知识库]
     
-    Start -->|15秒无活动| Idle
-    Idle --> Extractor
+    Start -->|空闲| Extractor
     Extractor -->|写入| SkillFile
-    SkillFile -->|注册| KnowledgeIndex
-    Extractor -->|更新| KnowledgeIndex
+    Extractor -->|更新索引| ProjectSkill
     
     NewSession --> Injector
-    Injector -->|注入提示| ReadKnowledge
-    ReadKnowledge -->|加载| KnowledgeIndex
-    KnowledgeIndex -.->|引用| SkillFile
+    Injector -->|注入提示| ProjectSkill
+    ProjectSkill -.->|引用| SkillFile
 ```
 
 ---
@@ -61,9 +56,9 @@ graph TB
 1. **你正常工作** - 编辑文件、调试问题、做决策
 2. **会话空闲** - 15 秒无活动后
 3. **提取器分析** - 检查发生了什么变化以及为什么
-4. **知识被捕获** - 存储在每个模块的 `.knowledge/SKILL.md` 中
-5. **索引更新** - 全局 `.knowledge/KNOWLEDGE.md` 跟踪所有技能
-6. **下次会话开始** - 首先读取 KNOWLEDGE.md，找到相关技能
+4. **知识被捕获** - 存储在 `<模块>/.knowledge/SKILL.md` 中
+5. **索引更新** - 全局索引位于 `.opencode/skills/<项目>/SKILL.md`
+6. **下次会话开始** - AI 先读取项目 skill，再读取相关模块 skill
 
 **插件帮你沉淀知识，你只管鞭策 AI 写代码。**
 
@@ -107,11 +102,11 @@ npm install smart-codebase
 
 ```jsonc
 {
-  // 示例配置
   "enabled": true,
   "debounceMs": 30000,
   "autoExtract": true,
   "autoInject": true,
+  "extractionModel": "minimax/MiniMax-M2.1",
   "disabledCommands": ["sc-rebuild-index"]
 }
 ```
@@ -122,6 +117,8 @@ npm install smart-codebase
 | `debounceMs` | `15000` | 会话空闲后等待多久（毫秒）才提取 |
 | `autoExtract` | `true` | 空闲时自动提取知识 |
 | `autoInject` | `true` | 会话开始时注入知识提示 |
+| `extractionModel` | - | 知识提取使用的模型，格式：`providerID/modelID` |
+| `extractionMaxTokens` | `8000` | 提取上下文的最大 token 预算 |
 | `disabledCommands` | `[]` | 要禁用的命令，如 `["sc-rebuild-index"]` |
 
 ---
@@ -130,8 +127,10 @@ npm install smart-codebase
 
 ```
 project/
-├── .knowledge/
-│   └── KNOWLEDGE.md              # 全局索引
+├── .opencode/
+│   └── skills/
+│       └── <项目名>/
+│           └── SKILL.md          # 项目 skill
 │
 ├── src/
 │   ├── auth/
@@ -145,6 +144,8 @@ project/
 │       │   └── SKILL.md          # 支付模块知识
 │       └── stripe.ts
 ```
+
+`.opencode/skills/<项目>/SKILL.md` 作为全局索引，会被 OpenCode 自动发现。模块级别的知识存储在各模块目录的 `.knowledge/SKILL.md` 中。
 
 ---
 

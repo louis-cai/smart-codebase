@@ -23,24 +23,19 @@ smart-codebase automatically captures knowledge from your sessions and makes it 
 ```mermaid
 graph TB
     Start([Session Work])
-    Idle[Idle 15 sec]
     Extractor[AI Extractor Analyzes]
-    SkillFile[SKILL.md<br/>Per Module]
-    KnowledgeIndex[KNOWLEDGE.md<br/>Global Index]
+    SkillFile[.knowledge/SKILL.md<br/>Per Module]
+    ProjectSkill[.opencode/skills/project/SKILL.md<br/>OpenCode Auto-Discovery]
     NewSession([New Session Starts])
     Injector[Knowledge Injector]
-    ReadKnowledge[Read Knowledge]
     
-    Start -->|15sec inactivity| Idle
-    Idle --> Extractor
+    Start -->|idle| Extractor
     Extractor -->|write| SkillFile
-    SkillFile -->|register| KnowledgeIndex
-    Extractor -->|update| KnowledgeIndex
+    Extractor -->|update index| ProjectSkill
     
     NewSession --> Injector
-    Injector -->|inject hint| ReadKnowledge
-    ReadKnowledge -->|load| KnowledgeIndex
-    KnowledgeIndex -.->|references| SkillFile
+    Injector -->|inject hint| ProjectSkill
+    ProjectSkill -.->|references| SkillFile
 ```
 
 ---
@@ -61,9 +56,9 @@ graph TB
 1. **You work normally** - Edit files, debug issues, make decisions
 2. **Session goes idle** - After 15 seconds of inactivity
 3. **Extractor analyzes** - Examines what changed and why
-4. **Knowledge captured** - Stored in `.knowledge/SKILL.md` per module
-5. **Index updated** - Global `.knowledge/KNOWLEDGE.md` tracks all skills
-6. **Next session starts** - Reads KNOWLEDGE.md first, finds relevant skills
+4. **Knowledge captured** - Stored in `<module>/.knowledge/SKILL.md`
+5. **Index updated** - Global index at `.opencode/skills/<project>/SKILL.md`
+6. **Next session starts** - AI reads the project skill, then relevant module skills
 
 **The plugin accumulates knowledge for you. Just focus on coding.**
 
@@ -107,11 +102,11 @@ No configuration required by default. To customize, create `~/.config/opencode/s
 
 ```jsonc
 {
-  // Example configuration
   "enabled": true,
   "debounceMs": 30000,
   "autoExtract": true,
   "autoInject": true,
+  "extractionModel": "minimax/MiniMax-M2.1",
   "disabledCommands": ["sc-rebuild-index"]
 }
 ```
@@ -122,6 +117,8 @@ No configuration required by default. To customize, create `~/.config/opencode/s
 | `debounceMs` | `15000` | Wait time (ms) after session idle before extraction |
 | `autoExtract` | `true` | Automatically extract knowledge on idle |
 | `autoInject` | `true` | Inject knowledge hint at session start |
+| `extractionModel` | - | Model for extraction, format: `providerID/modelID` |
+| `extractionMaxTokens` | `8000` | Max token budget for extraction context |
 | `disabledCommands` | `[]` | Commands to disable, e.g. `["sc-rebuild-index"]` |
 
 ---
@@ -130,8 +127,10 @@ No configuration required by default. To customize, create `~/.config/opencode/s
 
 ```
 project/
-├── .knowledge/
-│   └── KNOWLEDGE.md              # Global index
+├── .opencode/
+│   └── skills/
+│       └── <project-name>/
+│           └── SKILL.md          # Project skill
 │
 ├── src/
 │   ├── auth/
@@ -145,6 +144,8 @@ project/
 │       │   └── SKILL.md          # Payments module knowledge
 │       └── stripe.ts
 ```
+
+The project skill at `.opencode/skills/<project>/SKILL.md` serves as the global index and is auto-discovered by OpenCode. Module-level knowledge is stored in `.knowledge/SKILL.md` within each module directory.
 
 ---
 

@@ -1,5 +1,5 @@
 import { mkdir } from 'fs/promises';
-import { join, dirname, relative } from 'path';
+import { join, dirname, relative, resolve, isAbsolute, basename } from 'path';
 import { fileExists, readTextFile, writeTextFile, sleep, removeFile } from '../utils/fs-compat';
 
 export interface SkillMetadata {
@@ -78,8 +78,11 @@ export async function updateGlobalIndex(
   projectRoot: string,
   entry: IndexEntry
 ): Promise<void> {
-  const indexPath = join(projectRoot, '.knowledge', 'KNOWLEDGE.md');
+  const knowledgeDir = join(projectRoot, '.knowledge');
+  const indexPath = join(knowledgeDir, 'KNOWLEDGE.md');
   const lockFile = join(projectRoot, '.knowledge.lock');
+
+  await mkdir(knowledgeDir, { recursive: true });
 
   const lock = await acquireLock(lockFile, 5000);
 
@@ -131,11 +134,102 @@ export function toSkillName(modulePath: string): string {
     .slice(0, 64);
 }
 
+export function getProjectSkillName(projectRoot: string): string {
+  const folderName = basename(projectRoot);
+  
+  return folderName
+    .replace(/[^a-z0-9-]/gi, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .toLowerCase()
+    .slice(0, 64) || 'project';
+}
+
+export async function updateSkillIndex(
+  projectRoot: string,
+  entry: IndexEntry
+): Promise<void> {
+  const skillName = getProjectSkillName(projectRoot);
+  const skillDir = join(projectRoot, '.opencode', 'skills', skillName);
+  const skillPath = join(skillDir, 'SKILL.md');
+  const lockFile = join(skillDir, '.lock');
+
+  await mkdir(skillDir, { recursive: true });
+
+  const lock = await acquireLock(lockFile, 5000);
+
+  try {
+    let content = '';
+    if (await fileExists(skillPath)) {
+      content = await readTextFile(skillPath);
+    }
+
+    if (!content.startsWith('---')) {
+      content = `---
+name: ${skillName}-conventions
+description: Development conventions and patterns for ${basename(projectRoot)} project
+---
+
+# Project Knowledge
+
+> Project knowledge index. Read this first to understand available domain knowledge, then read relevant module SKILLs as needed.
+
+`;
+    }
+
+    const entryMarker = `### ${entry.name}`;
+    if (content.includes(entryMarker)) {
+      const entryRegex = new RegExp(
+        `### ${escapeRegex(entry.name)}[\\s\\S]*?(?=\\n### |$)`,
+        'g'
+      );
+      content = content.replace(entryRegex, formatIndexEntry(entry));
+    } else {
+      content = content.trimEnd() + '\n\n' + formatIndexEntry(entry);
+    }
+
+    await writeTextFile(skillPath, content);
+  } finally {
+    await releaseLock(lock);
+  }
+}
+
+// Directories that should not be treated as modules
+const EXCLUDED_DIRS = [
+  // Version control
+  '.git', '.svn', '.hg',
+  // Dependencies
+  'node_modules', 'bower_components', 'jspm_packages', 'vendor',
+  // Build outputs
+  'dist', 'build', 'out', 'output', '.output',
+  // Framework build directories
+  '.next', '.nuxt', '.vuepress', '.docusaurus', '.svelte-kit',
+  // Test coverage
+  'coverage', '.nyc_output',
+  // IDE/Editor config
+  '.vscode', '.idea', '.eclipse', '.settings',
+  // Git hooks
+  '.husky',
+  // Temporary/cache
+  'tmp', 'temp', '.cache', '.parcel-cache', '.turbo',
+  // Package manager
+  '.pnpm', '.yarn', '.npm',
+];
+
 export function getModulePath(filePath: string, projectRoot: string): string {
-  const relativePath = relative(projectRoot, dirname(filePath));
-  const parts = relativePath.split('/').filter(p => p && p !== '.');
+  const absolutePath = isAbsolute(filePath) 
+    ? filePath 
+    : resolve(projectRoot, filePath);
+  
+  const relativePath = relative(projectRoot, dirname(absolutePath));
+  const parts = relativePath.split(/[/\\]/).filter(p => p && p !== '.');
 
   if (parts.length === 0) return '.';
+  
+  if (parts.length >= 1 && EXCLUDED_DIRS.includes(parts[0])) {
+    return '.';
+  }
+
   if (parts.length === 1) return parts[0];
 
   return parts.slice(0, 2).join('/');

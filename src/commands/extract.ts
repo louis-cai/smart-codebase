@@ -2,6 +2,7 @@ import { tool } from "@opencode-ai/plugin";
 import { extractKnowledge } from "../hooks/knowledge-extractor";
 import { displayExtractionResult } from "../display/feedback";
 import { getPluginInput } from "../plugin-context";
+import { loadConfig } from "../config";
 
 export const extractCommand = tool({
   description: "Manually trigger knowledge extraction from codebase",
@@ -9,7 +10,8 @@ export const extractCommand = tool({
   async execute(_input, ctx) {
     try {
       const pluginInput = getPluginInput();
-      const result = await extractKnowledge(pluginInput, ctx.sessionID);
+      const config = loadConfig();
+      const result = await extractKnowledge(pluginInput, ctx.sessionID, config);
       
       return displayExtractionResult(result);
     } catch (error) {

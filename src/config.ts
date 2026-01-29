@@ -12,6 +12,7 @@ const DEFAULT_CONFIG: PluginConfig = {
   autoExtract: true,
   autoInject: true,
   disabledCommands: [],
+  extractionMaxTokens: 8000,
 };
 
 export function loadConfig(): PluginConfig {
