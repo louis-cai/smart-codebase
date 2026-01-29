@@ -1,3 +1,16 @@
+export interface UsageMetadata {
+  created_at: string;
+  last_accessed: string;
+  access_count: number;
+  last_updated: string;
+}
+
+export interface CleanupThresholds {
+  minAgeDays: number;
+  minAccessCount: number;
+  maxInactiveDays: number;
+}
+
 export interface PluginConfig {
   enabled: boolean;
   debounceMs?: number;
@@ -15,6 +28,7 @@ export interface PluginConfig {
    * If not specified, uses OpenCode's default model.
    */
   extractionModel?: string;
+  cleanupThresholds?: CleanupThresholds;
 }
 
 export interface ToolCallRecord {
