@@ -113,12 +113,13 @@ PRIMARY SIGNAL - CONVERSATION:
 ${preprocessed.conversation || '(No conversation)'}
 
 SECONDARY SIGNALS:
-- Files: ${preprocessed.modifiedFiles || '(none)'}
-- Diff: ${preprocessed.gitDiff || '(none)'}
-- Tools: ${preprocessed.toolCallsSummary || '(none)'}
-- Snippets: ${preprocessed.codeSnippets || '(none)'}
+- Files Modified: ${preprocessed.modifiedFiles || '(none)'}
+- Git Diff: ${preprocessed.gitDiff || '(none)'}
+- Tool Calls: ${preprocessed.toolCallsSummary || '(none)'}
+- Code Snippets: ${preprocessed.codeSnippets || '(none)'}
 ${existingSkillSection}
-TASK: Extract durable, project-specific knowledge for future AI sessions.
+
+YOUR TASK: Extract durable, project-specific knowledge for future AI sessions and Human developers.
 
 EXTRACT when: implementation patterns, design decisions, gotchas, bug fixes with explanations, user-described features.
 SKIP when: pure config changes, trivial edits (typos, formatting), no actionable knowledge.
@@ -137,11 +138,12 @@ OUTPUT FORMAT:
 }
 
 RULES:
-- name: English, lowercase-hyphens, max 64 chars
-- description: Max 300 chars. What + key gotchas + "Use when..." trigger
-- sections: Complete merged list with heading + content
-- Language: Write description/headings/content in USER'S LANGUAGE (detect from conversation). Keep name/code/paths in English.
-
+- name: lowercase-hyphens, max 64 chars. ALWAYS in English.
+- description: Max 300 chars. Include: what it does + key knowledge/gotchas + "Use when..." trigger. This serves as the index summary for skill discovery. MUST be in user's language.
+- sections: Complete merged list with heading + content.
+- content: No verbose explanations. Be Concise.
+- Language: Write description/headings/content in USER'S LANGUAGE (detect from conversation). Keep name field, code snippets, file paths, technical identifiers in English.
+- relatedFiles: COMPLETE list after merging.
 Return ONLY valid JSON. No knowledge: {"skill": null}`;
 
      const extractionPrompt = `Output the merged SKILL JSON now. Return ONLY valid JSON.`;
