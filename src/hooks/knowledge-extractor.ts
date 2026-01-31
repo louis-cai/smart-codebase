@@ -97,7 +97,7 @@ export async function extractKnowledge(
      await ctx.client.tui.showToast({
        body: {
          title: "smart-codebase",
-         message: "正在创建知识提取子会话，开始分析...",
+         message: "Creating knowledge extraction subsession, starting analysis...",
          variant: "info",
          duration: 5000,
        },
@@ -141,8 +141,8 @@ OUTPUT FORMAT:
   "skill": {
     "modulePath": "src/invoice",
     "name": "invoice-processing",
-    "description": "发票表单验证。金额用 Decimal 避免精度问题，格式 INV-YYYYMMDD-XXXX。修改发票表单或校验逻辑时使用。",
-    "sections": [{"heading": "表单验证", "content": "金额字段用 Decimal 类型避免精度问题。\\n发票号格式：INV-YYYYMMDD-XXXX"}],
+    "description": "Invoice form validation. Use Decimal for amounts to avoid precision issues, format INV-YYYYMMDD-XXXX. Use when modifying invoice forms or validation logic.",
+    "sections": [{"heading": "Form Validation", "content": "Amount field uses Decimal type to avoid precision issues.\\nInvoice number format: INV-YYYYMMDD-XXXX"}],
     "relatedFiles": ["src/invoice/form.tsx"]
   }
 }
@@ -323,7 +323,7 @@ export function createKnowledgeExtractorHook(ctx: PluginInput, config?: PluginCo
            await ctx.client.tui.showToast({
              body: {
                title: "smart-codebase",
-               message: "可运行 /sc-extract 提取知识",
+               message: "Run /sc-extract to extract knowledge",
                variant: "info",
                duration: 5000,
              },
@@ -344,7 +344,7 @@ export function createKnowledgeExtractorHook(ctx: PluginInput, config?: PluginCo
       await ctx.client.tui.showToast({
         body: {
           title: "smart-codebase",
-          message: `会话空闲，${debounceMs / 1000}秒后开始知识提取...`,
+          message: `Session idle, knowledge extraction starting in ${debounceMs / 1000} seconds...`,
           variant: "info",
           duration: 5000,
         },

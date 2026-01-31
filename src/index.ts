@@ -83,7 +83,7 @@ const SmartCodebasePlugin: Plugin = async (input) => {
            await input.client.tui.showToast({
              body: {
                title: "smart-codebase",
-               message: "知识提取已取消，继续工作...",
+               message: "Knowledge extraction cancelled, continuing work...",
                variant: "info",
                duration: 5000,
              },
