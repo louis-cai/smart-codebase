@@ -51,7 +51,7 @@ test("integration: write SKILL → read (track) → verify access_count = 1", as
     await writeModuleSkill(tmpDir, "src/auth", skillData);
     
     // Get the actual path where the skill was written
-    const projectName = getProjectSkillName(tmpDir);
+    const projectName = await getProjectSkillName(tmpDir);
     const skillPath = join(tmpDir, ".opencode", "skills", projectName, "modules", "src-auth.md");
     
     // Simulate read by calling trackSkillAccess
@@ -90,7 +90,7 @@ test("integration: write SKILL → read 3 times → verify access_count = 3", as
     await writeModuleSkill(tmpDir, "src/api", skillData);
     
     // Get the actual path
-    const projectName = getProjectSkillName(tmpDir);
+    const projectName = await getProjectSkillName(tmpDir);
     const skillPath = join(tmpDir, ".opencode", "skills", projectName, "modules", "src-api.md");
     
     // Simulate 3 reads
@@ -111,7 +111,7 @@ test("integration: write old low-usage SKILL → cleanup preview → verify in l
   
   try {
     // Create project structure
-    const projectName = getProjectSkillName(tmpDir);
+    const projectName = await getProjectSkillName(tmpDir);
     const modulesDir = join(tmpDir, ".opencode", "skills", projectName, "modules");
     await mkdir(modulesDir, { recursive: true });
     
@@ -152,7 +152,7 @@ test("integration: write multiple SKILLs with varying usage → status → verif
   const tmpDir = await mkdtemp(join(tmpdir(), "sc-integration-"));
   
   try {
-    const projectName = getProjectSkillName(tmpDir);
+    const projectName = await getProjectSkillName(tmpDir);
     const modulesDir = join(tmpDir, ".opencode", "skills", projectName, "modules");
     await mkdir(modulesDir, { recursive: true });
     
@@ -226,7 +226,7 @@ test("integration: status command handles empty skills directory gracefully", as
   
   try {
     // Create empty project structure (no skills)
-    const projectName = getProjectSkillName(tmpDir);
+    const projectName = await getProjectSkillName(tmpDir);
     const modulesDir = join(tmpDir, ".opencode", "skills", projectName, "modules");
     await mkdir(modulesDir, { recursive: true });
     
@@ -246,7 +246,7 @@ test("integration: status command counts only module skills (not main index)", a
   const tmpDir = await mkdtemp(join(tmpdir(), "sc-integration-"));
   
   try {
-    const projectName = getProjectSkillName(tmpDir);
+    const projectName = await getProjectSkillName(tmpDir);
     const skillsDir = join(tmpDir, ".opencode", "skills", projectName);
     const modulesDir = join(skillsDir, "modules");
     await mkdir(modulesDir, { recursive: true });

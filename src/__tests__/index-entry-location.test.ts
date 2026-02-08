@@ -19,9 +19,9 @@ describe("IndexEntry location construction", () => {
     expect(location).toBe("modules/src-main-services-config.md");
   });
   
-  test("root module should use absolute path to main SKILL.md", () => {
+  test("root module should use absolute path to main SKILL.md", async () => {
     const projectRoot = "/home/user/myproject";
-    const projectName = getProjectSkillName(projectRoot);
+    const projectName = await getProjectSkillName(projectRoot);
     const location = `.opencode/skills/${projectName}/SKILL.md`;
     
     expect(location).toBe(".opencode/skills/myproject/SKILL.md");

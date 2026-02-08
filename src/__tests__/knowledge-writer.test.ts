@@ -47,7 +47,7 @@ test("writeModuleSkill() writes to new path structure", async () => {
       tmpDir,
       ".opencode",
       "skills",
-      getProjectSkillName(tmpDir),
+      await getProjectSkillName(tmpDir),
       "modules",
       `${skillName}.md`
     );
@@ -136,7 +136,7 @@ test("module name conversion: src/auth -> src-auth.md", async () => {
 
 test("updateSkillIndex() creates correct entry location for module skills", async () => {
   const tmpDir = await mkdtemp(join(tmpdir(), "test-knowledge-"));
-  const projectName = getProjectSkillName(tmpDir);
+  const projectName = await getProjectSkillName(tmpDir);
   const modulePath = "src/payments";
   const skillName = toSkillName(modulePath); // "src-payments"
 

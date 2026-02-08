@@ -104,13 +104,23 @@ export async function extractKnowledge(
      }).catch(() => {});
 
      const primaryFile = Array.from(modifiedFiles)[0];
-     const primaryModulePath = getModulePath(primaryFile, ctx.directory);
-     
-     const existingSkillPath = join(ctx.directory, primaryModulePath, '.knowledge', 'SKILL.md');
      let existingSkillContent = '';
-     if (await fileExists(existingSkillPath)) {
-       existingSkillContent = await readTextFile(existingSkillPath);
-       console.log(`[smart-codebase] Found existing SKILL.md at ${existingSkillPath}, will merge`);
+
+     try {
+       const skillName = await getProjectSkillName(ctx.directory);
+       const skillPath = join(ctx.directory, '.opencode', 'skills', skillName, 'SKILL.md');
+       const hasSkill = await fileExists(skillPath);
+
+       if (!hasSkill) {
+         const primaryModulePath = getModulePath(primaryFile, ctx.directory);
+         const existingSkillPath = join(ctx.directory, primaryModulePath, '.knowledge', 'SKILL.md');
+         if (await fileExists(existingSkillPath)) {
+           existingSkillContent = await readTextFile(existingSkillPath);
+           console.log(`[smart-codebase] Found existing SKILL.md at ${existingSkillPath}, will merge`);
+         }
+       }
+     } catch (error) {
+       console.error(`[smart-codebase] Failed to check for project skill:`, error);
      }
 
      const existingSkillSection = existingSkillContent 

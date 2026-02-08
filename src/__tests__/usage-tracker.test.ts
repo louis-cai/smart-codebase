@@ -69,7 +69,7 @@ test("shouldTrackPath() excludes non-SKILL files", () => {
 
 test("trackSkillAccess() initializes usage metadata if missing", async () => {
   const tmpDir = await mkdtemp(join(tmpdir(), "test-usage-"));
-  const projectName = getProjectSkillName(tmpDir);
+  const projectName = await getProjectSkillName(tmpDir);
   const skillDir = join(tmpDir, ".opencode", "skills", projectName, "modules");
   const skillPath = join(skillDir, "src-auth.md");
 
@@ -110,7 +110,7 @@ Use JWT tokens with 15min expiry
 
 test("trackSkillAccess() increments access_count", async () => {
   const tmpDir = await mkdtemp(join(tmpdir(), "test-usage-"));
-  const projectName = getProjectSkillName(tmpDir);
+  const projectName = await getProjectSkillName(tmpDir);
   const skillDir = join(tmpDir, ".opencode", "skills", projectName, "modules");
   const skillPath = join(skillDir, "src-api.md");
 
@@ -144,7 +144,7 @@ Use RESTful endpoints
 
 test("trackSkillAccess() updates last_accessed timestamp", async () => {
   const tmpDir = await mkdtemp(join(tmpdir(), "test-usage-"));
-  const projectName = getProjectSkillName(tmpDir);
+  const projectName = await getProjectSkillName(tmpDir);
   const skillDir = join(tmpDir, ".opencode", "skills", projectName, "modules");
   const skillPath = join(skillDir, "src-db.md");
 
@@ -191,7 +191,7 @@ Use prepared statements
 
 test("trackSkillAccess() preserves created_at and last_updated", async () => {
   const tmpDir = await mkdtemp(join(tmpdir(), "test-usage-"));
-  const projectName = getProjectSkillName(tmpDir);
+  const projectName = await getProjectSkillName(tmpDir);
   const skillDir = join(tmpDir, ".opencode", "skills", projectName, "modules");
   const skillPath = join(skillDir, "src-core.md");
 
@@ -228,7 +228,7 @@ Use layered architecture
 
 test("trackSkillAccess() handles concurrent access safely", async () => {
   const tmpDir = await mkdtemp(join(tmpdir(), "test-usage-"));
-  const projectName = getProjectSkillName(tmpDir);
+  const projectName = await getProjectSkillName(tmpDir);
   const skillDir = join(tmpDir, ".opencode", "skills", projectName, "modules");
   const skillPath = join(skillDir, "src-utils.md");
 

@@ -24,7 +24,7 @@ export function createContextInjectorHook(ctx: PluginInput, config?: PluginConfi
     }
 
     try {
-      const skillName = getProjectSkillName(ctx.directory);
+      const skillName = await getProjectSkillName(ctx.directory);
       const skillPath = join(ctx.directory, '.opencode', 'skills', skillName, 'SKILL.md');
       const hasSkill = await fileExists(skillPath);
 

@@ -1,6 +1,7 @@
 import { mkdir } from 'fs/promises';
 import { join, dirname, relative, resolve, isAbsolute, basename } from 'path';
 import { fileExists, readTextFile, writeTextFile, sleep, removeFile } from '../utils/fs-compat';
+import { getGitRoot } from '../utils/git';
 
 export interface SkillMetadata {
   name: string;
@@ -29,7 +30,7 @@ export async function writeModuleSkill(
   modulePath: string,
   skill: SkillContent
 ): Promise<string> {
-  const projectName = getProjectSkillName(projectRoot);
+  const projectName = await getProjectSkillName(projectRoot);
   const skillName = toSkillName(modulePath);
   const skillDir = join(projectRoot, '.opencode', 'skills', projectName, 'modules');
   const skillPath = join(skillDir, `${skillName}.md`);
@@ -154,8 +155,9 @@ export function toSkillName(modulePath: string): string {
     .slice(0, 64);
 }
 
-export function getProjectSkillName(projectRoot: string): string {
-  const folderName = basename(projectRoot);
+export async function getProjectSkillName(projectRoot: string): Promise<string> {
+  const gitRoot = await getGitRoot(projectRoot);
+  const folderName = basename(gitRoot || projectRoot);
   
   return folderName
     .replace(/[^a-z0-9-]/gi, '-')
@@ -169,7 +171,7 @@ export async function updateSkillIndex(
   projectRoot: string,
   entry: IndexEntry
 ): Promise<void> {
-  const skillName = getProjectSkillName(projectRoot);
+  const skillName = await getProjectSkillName(projectRoot);
   const skillDir = join(projectRoot, '.opencode', 'skills', skillName);
   const skillPath = join(skillDir, 'SKILL.md');
   const lockFile = join(skillDir, '.lock');
