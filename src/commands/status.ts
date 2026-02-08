@@ -3,7 +3,8 @@ import { join } from "path";
 import type { KnowledgeStats } from "../types";
 import { fileExists, findFiles, readTextFile } from "../utils/fs-compat";
 import { loadConfig } from "../config";
-import { getProjectRootDir } from "../utils/git";
+import { getProjectRootDir, getGitRoot } from "../utils/git";
+import { getProjectSkillName } from "../storage/knowledge-writer";
 
 export const statusCommand = tool({
   description: "Display smart-codebase knowledge base status",
@@ -12,13 +13,21 @@ export const statusCommand = tool({
     try {
       const stats = await getKnowledgeStats(ctx.directory);
       const usageStats = await getUsageStats(ctx.directory);
-      
+      const projectName = await getProjectSkillName(ctx.directory);
+      const projectRoot = await getProjectRootDir(ctx.directory);
+      const gitRoot = await getGitRoot(ctx.directory);
+
       const indexStatus = stats.hasGlobalIndex ? '✅ exists' : '❌ not created';
       const moduleList = stats.modules.length > 0 
         ? stats.modules.map(m => `  - ${m}`).join('\n')
         : '  (none)';
       
       let output = `📚 smart-codebase Knowledge Status
+-----------------------------------
+Project Name: ${projectName}
+Project Root: ${projectRoot}
+Git Root:     ${gitRoot || '(not found)'}
+-----------------------------------
 
 Global index (.knowledge/KNOWLEDGE.md): ${indexStatus}
 Module count: ${stats.moduleCount}
