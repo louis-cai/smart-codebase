@@ -158,10 +158,38 @@ export function toSkillName(modulePath: string): string {
 }
 
 export async function getProjectSkillName(projectRoot: string): Promise<string> {
+  const rootDir = await getProjectRootDir(projectRoot);
+  
+  // Try to find config file first
+  const configPaths = [
+    join(rootDir, '.opencode', 'smart-codebase.json'),
+    join(rootDir, '.opencode', 'smart-codebase.jsonc'),
+  ];
+
+  for (const configPath of configPaths) {
+    if (await fileExists(configPath)) {
+      try {
+        const content = await readTextFile(configPath);
+        // Simple JSON parse (ignoring potential comments in jsonc for now)
+        // A more robust approach would be to strip comments, but for now let's try simple
+        const cleanContent = content.replace(/\/\*[\s\S]*?\*\/|([^\\:]|^)\/\/.*$/gm, '$1');
+        const config = JSON.parse(cleanContent);
+        if (config.projectName || config.name) {
+          return sanitizeSkillName(config.projectName || config.name);
+        }
+      } catch (e) {
+        console.error(`[smart-codebase] Failed to parse config at ${configPath}:`, e);
+      }
+    }
+  }
+
   const gitRoot = await getGitRoot(projectRoot);
   const folderName = basename(gitRoot || projectRoot);
-  
-  return folderName
+  return sanitizeSkillName(folderName);
+}
+
+function sanitizeSkillName(name: string): string {
+  return name
     .replace(/[^a-z0-9-]/gi, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')

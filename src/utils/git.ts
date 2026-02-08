@@ -1,7 +1,8 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { dirname, resolve } from 'path';
+import { dirname, resolve, join, basename, isAbsolute as pathIsAbsolute } from 'path';
 import { readFile, stat } from 'fs/promises';
+import { fileExists } from './fs-compat';
 
 const execAsync = promisify(exec);
 
@@ -15,16 +16,17 @@ const execAsync = promisify(exec);
  */
 export async function getGitRoot(cwd: string): Promise<string | null> {
   const tryResolve = async (dir: string) => {
-      try {
-        const { stdout: toplevel } = await execAsync('git rev-parse --show-toplevel', { cwd: dir });
-        return toplevel.trim();
-      } catch {
-        return null;
-      }
+    try {
+      const { stdout: toplevel } = await execAsync('git rev-parse --show-toplevel', { cwd: dir });
+      return toplevel.trim();
+    } catch {
+      return null;
+    }
   };
 
   try {
     // 1. Try to find the common git directory (works for worktrees since Git 2.5+)
+    // In a worktree, this points to the main repo's .git directory.
     const { stdout: commonDirRaw } = await execAsync('git rev-parse --git-common-dir', { cwd });
     let commonDir = commonDirRaw.trim();
     
@@ -33,26 +35,39 @@ export async function getGitRoot(cwd: string): Promise<string | null> {
         commonDir = resolve(cwd, commonDir);
       }
       
-      // If commonDir ends in .git, assume parent is root
-      if (commonDir.endsWith('.git')) {
-        const parent = dirname(commonDir);
-        // Usually safe to just return parent
-        return parent;
+      // If commonDir is a path to .git, the parent is the project root.
+      // E.g. /path/to/main/.git -> /path/to/main
+      // E.g. /path/to/main (if it's a bare repo, but we usually expect non-bare)
+      if (basename(commonDir) === '.git') {
+        return dirname(commonDir);
       }
       
-      // If it's a worktree, commonDir usually points to the main repo's .git dir
-      // We want the directory containing that .git dir.
-      // commonDir = /main/.git
-      // dirname(commonDir) = /main
-      // This is generally correct for worktrees.
-      return dirname(commonDir);
+      // If it's a worktree, commonDir usually points to the main repo's .git dir or the main root itself
+      // depending on git version and state. 
+      // If commonDir exists and contains a 'config' file, it's likely the .git dir.
+      const configExists = await fileExists(join(commonDir, 'config'));
+      if (configExists) {
+        return dirname(commonDir);
+      }
+
+      return commonDir;
     }
   } catch (e) {
-    // Falls through to fallback
+    // Falls through
   }
 
-  // 2. Fallback: Check for .git file manually (worktree file)
-  // This helps when git environment might be confused or we want to double check logic
+  try {
+    // 2. Use 'git worktree list' as secondary method.
+    const { stdout: wtList } = await execAsync('git worktree list --porcelain', { cwd });
+    const match = wtList.match(/^worktree\s+(.+)$/m);
+    if (match) {
+      return match[1].trim();
+    }
+  } catch (e) {
+    // Falls through
+  }
+
+  // 3. Fallback: Check for .git file manually (worktree file)
   try {
     const gitFile = resolve(cwd, '.git');
     const stats = await stat(gitFile).catch(() => null);
@@ -61,26 +76,20 @@ export async function getGitRoot(cwd: string): Promise<string | null> {
       const content = await readFile(gitFile, 'utf-8');
       const match = content.match(/^gitdir:\s*(.*)/m);
       if (match) {
-        let gitDir = match[1].trim(); // e.g. /path/to/main/.git/worktrees/wt-name
+        let gitDir = match[1].trim(); 
         
         if (!isAbsolute(gitDir)) {
             gitDir = resolve(cwd, gitDir);
         }
         
-        // Assume standard structure: <root>/.git/worktrees/<name>
-        // We want <root>
-        // Check if path contains .git/worktrees
         if (gitDir.includes('.git/worktrees/')) {
-             // Split by .git/worktrees to find root
              const parts = gitDir.split('.git/worktrees/');
              if (parts.length > 0) {
                  return parts[0]; 
              }
         }
         
-        // Fallback: try resolving 3 levels up if structure matches expectation
         const potentialRoot = resolve(gitDir, '../../..');
-        // Just verify potentialRoot has a .git dir?
         const check = await stat(resolve(potentialRoot, '.git')).catch(() => null);
         if (check && check.isDirectory()) {
             return potentialRoot;
@@ -91,9 +100,7 @@ export async function getGitRoot(cwd: string): Promise<string | null> {
       // ignore
   }
 
-  // 3. Last fallback: simple toplevel of current dir
-  // NOTE: In a worktree without correct common-dir resolution, this returns Worktree Root!
-  // This is the "failure mode" the user wants to avoid if possible.
+  // 4. Last fallback: simple toplevel of current dir
   return await tryResolve(cwd);
 }
 
@@ -106,5 +113,5 @@ export async function getProjectRootDir(dir: string): Promise<string> {
 }
 
 function isAbsolute(path: string): boolean {
-    return path.startsWith('/') || /^[a-zA-Z]:/.test(path);
+    return pathIsAbsolute(path) || path.startsWith('/') || /^[a-zA-Z]:/.test(path);
 }
