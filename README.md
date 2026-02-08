@@ -116,6 +116,23 @@ No configuration required by default. To customize, create `~/.config/opencode/s
 }
 ```
 
+#### Project-Specific Configuration (Optional)
+
+To ensure consistent project naming across different environments or Git worktrees, you can create a `.opencode/smart-codebase.json` (or `.jsonc`) file in your **project root** directory:
+
+```jsonc
+{
+  "projectName": "my-awesome-project"
+}
+```
+
+| Option | Description |
+|--------|-------------|
+| `projectName` | Explicitly define the project name for knowledge storage. Useful for Git worktrees where directory names might vary. |
+| `name` | Alias for `projectName`. |
+
+---
+
 | Option | Default | Description |
 |--------|---------|-------------|
 | `enabled` | `true` | Enable/disable the plugin entirely |
