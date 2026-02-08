@@ -22,7 +22,7 @@ export const statusCommand = tool({
         ? stats.modules.map(m => `  - ${m}`).join('\n')
         : '  (none)';
       
-      let output = `📚 smart-codebase Knowledge Status
+      let output = `📚 smart-codebase Knowledge Status (v0.3.8-dev)
 -----------------------------------
 Project Name: ${projectName}
 Project Root: ${projectRoot}
