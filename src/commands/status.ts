@@ -3,6 +3,7 @@ import { join } from "path";
 import type { KnowledgeStats } from "../types";
 import { fileExists, findFiles, readTextFile } from "../utils/fs-compat";
 import { loadConfig } from "../config";
+import { getProjectRootDir } from "../utils/git";
 
 export const statusCommand = tool({
   description: "Display smart-codebase knowledge base status",
@@ -61,11 +62,12 @@ Usage breakdown:
 });
 
 async function getKnowledgeStats(projectRoot: string): Promise<KnowledgeStats> {
-  const indexPath = join(projectRoot, '.knowledge', 'KNOWLEDGE.md');
+  const rootDir = await getProjectRootDir(projectRoot);
+  const indexPath = join(rootDir, '.knowledge', 'KNOWLEDGE.md');
   const hasGlobalIndex = await fileExists(indexPath);
   
   const skillFiles = await findFiles('**/.knowledge/SKILL.md', {
-    cwd: projectRoot,
+    cwd: rootDir,
     absolute: false,
   });
   
@@ -92,7 +94,8 @@ async function getUsageStats(projectRoot: string): Promise<UsageStats> {
   const config = loadConfig();
   const minAccessThreshold = config.cleanupThresholds?.minAccessCount || 5;
   
-  const skillsDir = join(projectRoot, '.opencode', 'skills');
+  const rootDir = await getProjectRootDir(projectRoot);
+  const skillsDir = join(rootDir, '.opencode', 'skills');
   
   if (!(await fileExists(skillsDir))) {
     return {

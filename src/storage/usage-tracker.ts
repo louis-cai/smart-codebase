@@ -1,6 +1,7 @@
 import { join, dirname } from 'path';
 import { mkdir } from 'fs/promises';
 import { fileExists, readTextFile, writeTextFile, sleep, removeFile } from '../utils/fs-compat';
+import { getProjectRootDir } from '../utils/git';
 
 interface UsageMetadata {
   created_at?: string;

@@ -1,7 +1,7 @@
 import { mkdir } from 'fs/promises';
 import { join, dirname, relative, resolve, isAbsolute, basename } from 'path';
 import { fileExists, readTextFile, writeTextFile, sleep, removeFile } from '../utils/fs-compat';
-import { getGitRoot } from '../utils/git';
+import { getGitRoot, getProjectRootDir } from '../utils/git';
 
 export interface SkillMetadata {
   name: string;
@@ -30,9 +30,10 @@ export async function writeModuleSkill(
   modulePath: string,
   skill: SkillContent
 ): Promise<string> {
+  const rootDir = await getProjectRootDir(projectRoot);
   const projectName = await getProjectSkillName(projectRoot);
   const skillName = toSkillName(modulePath);
-  const skillDir = join(projectRoot, '.opencode', 'skills', projectName, 'modules');
+  const skillDir = join(rootDir, '.opencode', 'skills', projectName, 'modules');
   const skillPath = join(skillDir, `${skillName}.md`);
   const lockFile = join(skillDir, '.lock');
 
@@ -99,9 +100,10 @@ export async function updateGlobalIndex(
   projectRoot: string,
   entry: IndexEntry
 ): Promise<void> {
-  const knowledgeDir = join(projectRoot, '.knowledge');
+  const rootDir = await getProjectRootDir(projectRoot);
+  const knowledgeDir = join(rootDir, '.knowledge');
   const indexPath = join(knowledgeDir, 'KNOWLEDGE.md');
-  const lockFile = join(projectRoot, '.knowledge.lock');
+  const lockFile = join(rootDir, '.knowledge.lock');
 
   await mkdir(knowledgeDir, { recursive: true });
 
@@ -171,8 +173,9 @@ export async function updateSkillIndex(
   projectRoot: string,
   entry: IndexEntry
 ): Promise<void> {
+  const rootDir = await getProjectRootDir(projectRoot);
   const skillName = await getProjectSkillName(projectRoot);
-  const skillDir = join(projectRoot, '.opencode', 'skills', skillName);
+  const skillDir = join(rootDir, '.opencode', 'skills', skillName);
   const skillPath = join(skillDir, 'SKILL.md');
   const lockFile = join(skillDir, '.lock');
 

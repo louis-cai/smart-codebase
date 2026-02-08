@@ -1,72 +1,110 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { dirname } from 'path';
+import { dirname, resolve } from 'path';
+import { readFile, stat } from 'fs/promises';
 
 const execAsync = promisify(exec);
 
 /**
- * Get the root directory of the git repository
+ * Get the root directory of the git repository.
+ * In a worktree, this DOES ITS BEST to return the MAIN project root, not the worktree root.
+ * This ensures that skills and knowledge are centralized.
+ * 
  * @param cwd - Current working directory to start search from
  * @returns Absolute path to git root, or null if not in a git repo
  */
 export async function getGitRoot(cwd: string): Promise<string | null> {
-  try {
-    // try to get the common dir first (works for worktrees)
-    try {
-        const { stdout: commonDir } = await execAsync('git rev-parse --git-common-dir', { cwd });
-        if (commonDir.trim()) {
-            // If we are in a worktree, --show-toplevel gives the worktree root.
-            // But usually we want the "project name" to be consistent.
-            // However, the user said "if in work tree, it causes work tree skill to be separate".
-            // So they likely want the MAIN repo name.
-            
-            // Actually, `git rev-parse --show-toplevel` returns the root of the WORKTREE.
-            // If the user wants the skill name to be consistent across worktrees,
-            // we should probably use the basename of the MAIN repo directory,
-            // OR use a specific configuration.
-            
-            // Let's check `git rev-parse --show-superproject-working-tree`? No.
-            
-            // If use `git rev-parse --git-common-dir`, it returns the path to `.git` dir of the main repo.
-            // e.g. `/path/to/main/.git`
-            // So dirname(commonDir) would be the main repo root?
-            // Wait, commonDir might be relative.
-             const { stdout: absoluteCommonDir } = await execAsync('git rev-parse --path-format=absolute --git-common-dir', { cwd });
-             // The common dir is usually .git/worktrees/... or just .git
-             // Actually, for worktrees, the main git dir is referenced in .git file.
-             // `git rev-parse --git-common-dir` returns the shared .git directory.
-             // If we are in main repo, it returns `.git`.
-             // If we are in worktree, it returns `/path/to/main/.git`.
-             
-             // So if we take the dirname of the absolute common dir, we usually get the main project root.
-             // UNLESS it is a bare repo?
-             
-             // Let's try `git rev-parse --show-toplevel` first.
-             // Only if the user specifically complained about worktrees...
-             // "if it is in work tree, it leads to work tree skill being separate"
-             // This implies `basename(cwd)` was returning `worktree-name`.
-             // But `git rev-parse --show-toplevel` returns `/path/to/worktree`.
-             // So `basename` of that is still `worktree-name`.
-             
-             // WE WANT THE MAIN REPO NAME.
-             // use `git rev-parse --git-dir`? 
-             // in worktree: `/path/to/main/.git/worktrees/my-worktree`
-             // in main: `.git`
-             
-             // use `git rev-parse --git-common-dir`?
-             // in worktree: `/path/to/main/.git`
-             // in main: `.git`
-             // BUT `git rev-parse --path-format=absolute --git-common-dir` gives absolute path.
-             
-             return dirname((await execAsync('git rev-parse --path-format=absolute --git-common-dir', { cwd })).stdout.trim());
-        }
-    } catch {
-        // fallback
-    }
+  const tryResolve = async (dir: string) => {
+      try {
+        const { stdout: toplevel } = await execAsync('git rev-parse --show-toplevel', { cwd: dir });
+        return toplevel.trim();
+      } catch {
+        return null;
+      }
+  };
 
-    const { stdout } = await execAsync('git rev-parse --show-toplevel', { cwd });
-    return stdout.trim();
-  } catch {
-    return null;
+  try {
+    // 1. Try to find the common git directory (works for worktrees since Git 2.5+)
+    const { stdout: commonDirRaw } = await execAsync('git rev-parse --git-common-dir', { cwd });
+    let commonDir = commonDirRaw.trim();
+    
+    if (commonDir) {
+      if (!isAbsolute(commonDir)) {
+        commonDir = resolve(cwd, commonDir);
+      }
+      
+      // If commonDir ends in .git, assume parent is root
+      if (commonDir.endsWith('.git')) {
+        const parent = dirname(commonDir);
+        // Usually safe to just return parent
+        return parent;
+      }
+      
+      // If it's a worktree, commonDir usually points to the main repo's .git dir
+      // We want the directory containing that .git dir.
+      // commonDir = /main/.git
+      // dirname(commonDir) = /main
+      // This is generally correct for worktrees.
+      return dirname(commonDir);
+    }
+  } catch (e) {
+    // Falls through to fallback
   }
+
+  // 2. Fallback: Check for .git file manually (worktree file)
+  // This helps when git environment might be confused or we want to double check logic
+  try {
+    const gitFile = resolve(cwd, '.git');
+    const stats = await stat(gitFile).catch(() => null);
+    
+    if (stats && stats.isFile()) {
+      const content = await readFile(gitFile, 'utf-8');
+      const match = content.match(/^gitdir:\s*(.*)/m);
+      if (match) {
+        let gitDir = match[1].trim(); // e.g. /path/to/main/.git/worktrees/wt-name
+        
+        if (!isAbsolute(gitDir)) {
+            gitDir = resolve(cwd, gitDir);
+        }
+        
+        // Assume standard structure: <root>/.git/worktrees/<name>
+        // We want <root>
+        // Check if path contains .git/worktrees
+        if (gitDir.includes('.git/worktrees/')) {
+             // Split by .git/worktrees to find root
+             const parts = gitDir.split('.git/worktrees/');
+             if (parts.length > 0) {
+                 return parts[0]; 
+             }
+        }
+        
+        // Fallback: try resolving 3 levels up if structure matches expectation
+        const potentialRoot = resolve(gitDir, '../../..');
+        // Just verify potentialRoot has a .git dir?
+        const check = await stat(resolve(potentialRoot, '.git')).catch(() => null);
+        if (check && check.isDirectory()) {
+            return potentialRoot;
+        }
+      }
+    }
+  } catch (e) {
+      // ignore
+  }
+
+  // 3. Last fallback: simple toplevel of current dir
+  // NOTE: In a worktree without correct common-dir resolution, this returns Worktree Root!
+  // This is the "failure mode" the user wants to avoid if possible.
+  return await tryResolve(cwd);
+}
+
+/**
+ * Get the project root directory. Prefers git root if available, otherwise uses the provided directory.
+ */
+export async function getProjectRootDir(dir: string): Promise<string> {
+    const gitRoot = await getGitRoot(dir);
+    return gitRoot || dir;
+}
+
+function isAbsolute(path: string): boolean {
+    return path.startsWith('/') || /^[a-zA-Z]:/.test(path);
 }

@@ -1,14 +1,16 @@
 import { tool } from "@opencode-ai/plugin";
 import { join, dirname } from "path";
 import { findFiles, readTextFile, writeTextFile } from "../utils/fs-compat";
+import { getProjectRootDir } from "../utils/git";
 
 export const rebuildIndexCommand = tool({
   description: "Rebuild global knowledge base index from all SKILL.md files",
   args: {},
   async execute(_input, ctx) {
     try {
+      const rootDir = await getProjectRootDir(ctx.directory);
       const skillFiles = await findFiles('**/.knowledge/SKILL.md', {
-        cwd: ctx.directory,
+        cwd: rootDir,
         absolute: true,
       });
       
@@ -21,7 +23,7 @@ export const rebuildIndexCommand = tool({
       for (const skillPath of skillFiles) {
         try {
           const content = await readTextFile(skillPath);
-          const modulePath = dirname(dirname(skillPath)).replace(ctx.directory + '/', '');
+          const modulePath = dirname(dirname(skillPath)).replace(rootDir + '/', '');
           
           const nameMatch = content.match(/^name:\s*(.+)$/m);
           const name = nameMatch ? nameMatch[1].trim() : modulePath;
@@ -44,7 +46,7 @@ ${description}
 
 ${entries.join('\n')}`;
       
-      const indexPath = join(ctx.directory, '.knowledge', 'KNOWLEDGE.md');
+      const indexPath = join(rootDir, '.knowledge', 'KNOWLEDGE.md');
       await writeTextFile(indexPath, indexContent);
       
       return `🔄 Knowledge index rebuilt

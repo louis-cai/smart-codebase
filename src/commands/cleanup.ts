@@ -3,6 +3,7 @@ import { join } from "path";
 import { unlink } from "fs/promises";
 import { findFiles, fileExists, readTextFile, writeTextFile } from "../utils/fs-compat";
 import { loadConfig } from "../config";
+import { getProjectRootDir } from "../utils/git";
 import type { UsageMetadata, CleanupThresholds } from "../types";
 
 interface EligibleSkill {
@@ -58,7 +59,8 @@ async function findEligibleSkills(
   projectRoot: string,
   thresholds: CleanupThresholds
 ): Promise<EligibleSkill[]> {
-  const skillsDir = join(projectRoot, '.opencode', 'skills');
+  const rootDir = await getProjectRootDir(projectRoot);
+  const skillsDir = join(rootDir, '.opencode', 'skills');
   
   if (!(await fileExists(skillsDir))) {
     return [];
@@ -66,7 +68,7 @@ async function findEligibleSkills(
   
   const pattern = ".opencode/skills/*/modules/*.md";
   const skillFiles = await findFiles(pattern, {
-    cwd: projectRoot,
+    cwd: rootDir,
     absolute: true,
   });
 
@@ -207,7 +209,8 @@ async function performCleanup(
 }
 
 async function updateMainIndex(projectRoot: string, deletedNames: string[]): Promise<void> {
-  const skillsDir = join(projectRoot, '.opencode', 'skills');
+  const rootDir = await getProjectRootDir(projectRoot);
+  const skillsDir = join(rootDir, '.opencode', 'skills');
   
   if (!(await fileExists(skillsDir))) {
     return;

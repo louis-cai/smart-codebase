@@ -3,6 +3,7 @@ import type { PluginConfig } from "../types";
 import { join } from "path";
 import { fileExists } from "../utils/fs-compat";
 import { getProjectSkillName } from "../storage/knowledge-writer";
+import { getProjectRootDir } from "../utils/git";
 
 type ChatMessageInput = Parameters<NonNullable<Hooks["chat.message"]>>[0];
 type ChatMessageOutput = Parameters<NonNullable<Hooks["chat.message"]>>[1];
@@ -24,8 +25,9 @@ export function createContextInjectorHook(ctx: PluginInput, config?: PluginConfi
     }
 
     try {
+      const rootDir = await getProjectRootDir(ctx.directory);
       const skillName = await getProjectSkillName(ctx.directory);
-      const skillPath = join(ctx.directory, '.opencode', 'skills', skillName, 'SKILL.md');
+      const skillPath = join(rootDir, '.opencode', 'skills', skillName, 'SKILL.md');
       const hasSkill = await fileExists(skillPath);
 
       if (!hasSkill) {

@@ -12,6 +12,7 @@ import {
 } from "../storage/knowledge-writer";
 import { unwrapData, extractTextFromParts, withTimeout } from "../utils/sdk-helpers";
 import { fileExists, readTextFile } from "../utils/fs-compat";
+import { getProjectRootDir } from "../utils/git";
 import { displayExtractionResult } from "../display/feedback";
 import { preprocessSessionSummary } from "../preprocessing/session-summary";
 
@@ -107,8 +108,9 @@ export async function extractKnowledge(
      let existingSkillContent = '';
 
      try {
+       const rootDir = await getProjectRootDir(ctx.directory);
        const skillName = await getProjectSkillName(ctx.directory);
-       const skillPath = join(ctx.directory, '.opencode', 'skills', skillName, 'SKILL.md');
+       const skillPath = join(rootDir, '.opencode', 'skills', skillName, 'SKILL.md');
        const hasSkill = await fileExists(skillPath);
 
        if (!hasSkill) {
@@ -237,7 +239,7 @@ Return ONLY valid JSON. No knowledge: {"skill": null}`;
       name: skillContent.metadata.name,
       description: skillContent.metadata.description,
       location: modulePath === '.' 
-        ? `.opencode/skills/${getProjectSkillName(ctx.directory)}/SKILL.md`
+        ? `.opencode/skills/${await getProjectSkillName(ctx.directory)}/SKILL.md`
         : `modules/${toSkillName(modulePath)}.md`
     };
 
